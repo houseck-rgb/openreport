@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#ffffff">
+<title>오픈 보고</title>
+<style>
+*{box-sizing:border-box} body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Noto Sans KR",Arial,sans-serif;background:#f5f6f8;color:#171717}
+.wrap{max-width:680px;margin:auto;padding:18px 14px 110px}
+h1{font-size:25px;margin:6px 0 4px}.sub{color:#777;font-size:13px;margin-bottom:18px}
+.top{display:grid;grid-template-columns:1fr;gap:10px;margin-bottom:14px}
+select,input{width:100%;border:1px solid #ddd;border-radius:13px;background:#fff;padding:14px;font-size:16px}
+.card{background:#fff;border-radius:18px;padding:16px;margin:12px 0;box-shadow:0 2px 12px #0000000a}
+.head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.title{font-size:18px;font-weight:800}.count{font-size:13px;color:#777}
+.photos{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.slot{position:relative;aspect-ratio:1.25/1;border:1.5px dashed #cfd2d7;border-radius:14px;overflow:hidden;background:#fafafa}
+.slot input{position:absolute;inset:0;opacity:0;z-index:3;padding:0;cursor:pointer}
+.slot img{width:100%;height:100%;object-fit:cover;display:none}
+.placeholder{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#777;font-size:13px;gap:5px}
+.camera{font-size:27px}.done{position:absolute;right:7px;top:7px;background:#111;color:#fff;border-radius:20px;padding:4px 7px;font-size:11px;display:none}
+.actions{position:fixed;bottom:0;left:0;right:0;background:#ffffffed;backdrop-filter:blur(10px);padding:10px 14px calc(10px + env(safe-area-inset-bottom));border-top:1px solid #eee}
+.actions>div{max-width:680px;margin:auto;display:grid;grid-template-columns:1fr 2fr;gap:9px}
+button{border:0;border-radius:14px;padding:15px;font-size:16px;font-weight:800}
+#reset{background:#eceef1;color:#333}#share{background:#171717;color:#fff}
+.status{text-align:center;color:#777;font-size:12px;margin-top:8px}
+@media(min-width:560px){.photos{grid-template-columns:repeat(4,1fr)}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>오픈 보고</h1>
+<div class="sub" id="now"></div>
+<div class="top">
+<select id="store">
+<option value="">매장 선택</option>
+<option>구로</option><option>가산</option><option>여의도</option><option>영등포</option><option>종로</option>
+</select>
+
+</div>
+<div id="sections"></div>
+<div class="status" id="status">사진 0 / 17</div>
+</div>
+<div class="actions"><div>
+<button id="reset">초기화</button>
+<button id="share">공유하기</button>
+</div></div>
+<script>
+const defs=[
+ ["외부 2곳",2],["음악",1],["테블릿 상태",2],["야채 상태",4],["거래명세서",4],["택배물 · 우편물",4]
+];
+const sections=document.getElementById("sections");
+let files={};
+defs.forEach(([name,n],si)=>{
+ const card=document.createElement("section"); card.className="card";
+ card.innerHTML=`<div class="head"><div class="title">${si+1}. ${name}</div><div class="count" id="c${si}">0 / ${n}컷</div></div><div class="photos"></div>`;
+ const grid=card.querySelector(".photos");
+ for(let i=0;i<n;i++){
+  const slot=document.createElement("label"); slot.className="slot";
+  slot.innerHTML=`<input type="file" accept="image/*" capture="environment" data-k="${si}-${i}">
+  <div class="placeholder"><span>${i+1}컷 촬영</span></div><img><span class="done">✓ 완료</span>`;
+  grid.appendChild(slot);
+ }
+ sections.appendChild(card);
+});
+function update(){
+ let total=0;
+ defs.forEach((d,si)=>{
+  let c=0; for(let i=0;i<d[1];i++) if(files[`${si}-${i}`]) c++;
+  total+=c; document.getElementById("c"+si).textContent=`${c} / ${d[1]}컷`;
+ });
+ document.getElementById("status").textContent=`사진 ${total} / 17`;
+}
+document.addEventListener("change",e=>{
+ if(!e.target.matches('input[type=file]'))return;
+ const f=e.target.files[0]; if(!f)return;
+ const k=e.target.dataset.k; files[k]=f;
+ const slot=e.target.closest(".slot"), img=slot.querySelector("img");
+ img.src=URL.createObjectURL(f); img.style.display="block";
+ slot.querySelector(".placeholder").style.display="none"; slot.querySelector(".done").style.display="block"; update();
+});
+function stamp(){
+ const d=new Date(); document.getElementById("now").textContent=d.toLocaleString("ko-KR",{year:"numeric",month:"long",day:"numeric",weekday:"short",hour:"2-digit",minute:"2-digit"});
+} stamp(); setInterval(stamp,60000);
+document.getElementById("reset").onclick=()=>{if(confirm("촬영한 사진과 입력 내용을 모두 지울까요?"))location.reload()};
+document.getElementById("share").onclick=async()=>{
+ const store=document.getElementById("store").value;
+ if(!store){alert("매장을 선택해주세요.");return}
+ const missing=[]; defs.forEach((d,si)=>{let c=0;for(let i=0;i<d[1];i++)if(files[`${si}-${i}`])c++;if(c<d[1])missing.push(`${d[0]} ${c}/${d[1]}컷`)});
+ if(missing.length && !confirm("아직 촬영하지 않은 항목이 있습니다.\n\n"+missing.join("\n")+"\n\n그래도 공유할까요?"))return;
+ const date=new Date().toLocaleString("ko-KR");
+ const text=`[오픈 보고]\n매장: ${store}\n시간: ${date}\n\n`+defs.map((d,si)=>{let c=0;for(let i=0;i<d[1];i++)if(files[`${si}-${i}`])c++;return `${si+1}. ${d[0]} ${c}/${d[1]}컷`;}).join("\n");
+ const arr=Object.values(files);
+ try{
+  if(navigator.share){
+   const shareData={title:"오픈 보고",text};
+   if(arr.length && navigator.canShare && navigator.canShare({files:arr})) shareData.files=arr;
+   await navigator.share(shareData);
+  }else{
+   await navigator.clipboard.writeText(text); alert("보고 내용이 복사되었습니다. 사진은 갤러리에서 함께 전송해주세요.");
+  }
+ }catch(e){if(e.name!=="AbortError")alert("공유가 지원되지 않는 환경입니다. 브라우저의 공유 기능을 확인해주세요.");}
+};
+</script>
+</body></html>
